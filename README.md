@@ -25,6 +25,15 @@ The template watches incoming support emails, classifies and drafts replies with
 7. Handles Slack button responses in a second workflow.
 8. Sends the approved Gmail reply and updates the ticket status.
 
+Human Review Required in Ticket
+<img width="1027" height="485" alt="image" src="https://github.com/user-attachments/assets/c25b7984-f3c4-4100-b74f-d9bb12fac534" />
+
+Approved Updated in Slack:
+<img width="1023" height="296" alt="image" src="https://github.com/user-attachments/assets/502c28e7-5fb6-4026-8086-572e85cda32f" />
+
+Email Conversation:
+<img width="1213" height="564" alt="image" src="https://github.com/user-attachments/assets/f29fce56-31ce-4524-9dd5-60c7e3cc1e15" />
+
 ## Requirements
 
 - n8n Cloud or self-hosted n8n
@@ -89,11 +98,6 @@ In n8n, the easiest way to replace these is usually to open each affected node a
 | `YOUR_SHEET_TAB_ID` | The numeric gid of the sheet tab. |
 | `YOUR_SHEET_TAB_NAME` | The name of the sheet tab used for tickets. |
 
-Example Google Sheet URL:
-
-```text
-https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_TAB_ID
-```
 
 ### Slack
 
