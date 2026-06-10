@@ -1,0 +1,1124 @@
+{
+  "name": "Customer Support Triage Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Gmail Trigger\n\nThis node watches Gmail for new support emails.\n\nRecommended setup:\n- Event: Message Received\n- Label: Support\n- Poll time: Every 5 minutes\n\nUse a Gmail label instead of only subject keywords. Subject filters may miss real customer emails and follow-up replies.\n\nFor testing, send a new email and make sure the Support label is applied before the trigger polls.\n\n### Replace the Gmail Trigger with:\nWebhook Trigger for website forms\nZendesk Trigger for helpdesk tickets\nIntercom Trigger for chat\nFreshdesk Trigger for tickets",
+        "height": 464,
+        "width": 432,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1344,
+        -1136
+      ],
+      "typeVersion": 1,
+      "id": "17931828-82a8-4d16-8986-2bd608dc054f",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a9dff91c-dc5e-4e63-8532-dc205a9cd8c9",
+              "name": "customer_email",
+              "value": "={{ $json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "e422f1d1-f628-4861-a111-a53ec3e8bd48",
+              "name": "subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "82b798c7-ff12-46b0-bfa5-350769a9774a",
+              "name": "email_body",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "7c6a9562-7916-44cb-9941-5208c003624d",
+              "name": "gmail_message_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2d7271c9-83f9-422f-a289-c9f0e1f745bf",
+              "name": "gmail_thread_id",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "562964b9-35ef-4f18-83c0-2855ad681563",
+              "name": "received_at",
+              "value": "={{ $json.internalDate ? DateTime.fromMillis(Number($json.internalDate)).format('yyyy-MM-dd HH:mm:ss ZZZZ') : $now.format('yyyy-MM-dd HH:mm:ss ZZZZ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -784,
+        -848
+      ],
+      "id": "5b12fe01-25e9-4180-b3d3-df1414158796",
+      "name": "Extract Email Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "deb43e08-a3ac-4a22-9010-63466f6bd017",
+              "leftValue": "={{ $json.ai_needs_human }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "fa792fb7-3c79-44f3-9bf4-9858b5433df8",
+              "leftValue": "={{ $json.ai_priority }}",
+              "rightValue": "urgent",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "88d3c418-b569-4651-8409-7b9a0735150e",
+              "leftValue": "={{ $json.ai_sentiment }}",
+              "rightValue": "angry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "d80f8e92-abd7-46b5-ad0e-4401e0b7cdf6",
+              "leftValue": "={{ $json.ai_confidence }}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        -816
+      ],
+      "id": "d68273a7-6997-453e-89dc-d531aa83bf7a",
+      "name": "Needs Human Review?"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "Label_1191336768371306395"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1040,
+        -848
+      ],
+      "id": "b0acbcca-4767-47e4-a4f2-e26e91c787aa",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_OAUTH2_CREDENTIAL_ID_PLACEHOLDER",
+          "name": "GMAIL_OAUTH2_CREDENTIAL_NAME_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama-3.3-70b-versatile",
+          "mode": "list",
+          "cachedResultName": "LLAMA-3.3-70B-VERSATILE"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an AI support triage assistant for a business support inbox.\n\nYour job is to analyze a customer support email, classify it, determine whether a human must review it, and draft a safe suggested reply.\n\nReturn valid JSON only.\nDo not include markdown.\nDo not include explanations.\nDo not include text outside the JSON.\n\nImportant safety rules:\n- Do not promise refunds, discounts, replacement items, delivery guarantees, legal outcomes, financial advice, medical advice, or account changes.\n- Do not claim that an action has already been completed unless the provided email or conversation context explicitly proves it.\n- Do not invent company-specific information such as shipping timeframes, pricing, refund policies, account details, product availability, or internal process steps.\n- If company-specific information is missing, use a placeholder such as [insert company shipping timeframe] or say the support team can confirm.\n- Refund requests, damaged item reports, billing/payment issues, angry complaints, legal threats, unclear messages, and sensitive account issues must always set needs_human to true.\n- If the customer includes sensitive personal information, set needs_human to true and do not repeat the sensitive information in the suggested reply.\n- Set confidence between 0 and 1 based on how certain you are about the classification and draft.\n- For clear shipping, sales, billing, refund, account, or technical support requests, confidence should usually be above 0.8.\n- If confidence is below 0.8, set needs_human to true.\n- Keep the suggested reply professional, concise, empathetic, and operational.\n- The suggested reply is only a draft for human review.\n- Avoid phrases like “I’d be happy to.” Use direct, helpful language.\n- Ask for missing information when needed, such as order number, account email, screenshots, photos, or error messages.\n- For refund or damaged product emails, do not promise approval. Ask for the order number and photo/evidence if relevant, and say the support team will review.\n- For legal threats, angry complaints, payment disputes, or sensitive account issues, draft a calm acknowledgement and route to human review.\n\nSuggested reply formatting rules:\n- The suggested_reply must be formatted as a complete customer support email.\n- Use this structure exactly:\n  1. Salutation\n  2. Body\n  3. Closing\n  4. Sender name\n- Start with a polite salutation such as “Hi [Customer Name],” or “Hello,” if the name is unknown.\n- Use short paragraphs with blank lines between sections.\n- End with:\n  Regards,\n  n8n Support Team\n- Do not use markdown formatting.\n- Do not include a subject line inside suggested_reply.\n- Keep the tone professional, concise, and empathetic.\n- Use blank lines only between salutation, body paragraphs, closing, and sender name.\n- Do not manually wrap lines inside paragraphs.\n\nConversation context:\n\nConversation type:\n{{ $json.conversation_type }}\n\nPrevious ticket ID:\n{{ $json.parent_ticket_id }}\n\nPrevious ticket status:\n{{ $json.previous_status }}\n\nPrevious ticket summary:\n{{ $json.previous_summary }}\n\nPrevious reply sent or drafted:\n{{ $json.previous_final_reply }}\n\nInstructions for follow-ups:\n- If conversation_type is \"Follow-up\", treat the customer email as part of an ongoing support conversation.\n- Do not repeat the previous reply unless necessary.\n- Acknowledge the latest customer message and continue from the previous context.\n- If the previous status was Sent, assume the customer is replying to the last support response.\n- If the customer provides missing information requested earlier, use it in the new summary and suggested reply.\n- If the customer asks a new question inside an existing thread, classify based on the latest customer intent while considering the previous context.\n- If the previous status was Needs Edit or Rejected, set needs_human to true.\n\nCurrent customer email:\n\nFrom:\n{{ $json.customer_email }}\n\nSubject:\n{{ $json.subject }}\n\nBody:\n{{ $json.email_body }}\n\nReturn this JSON schema exactly:\n\n{\n  \"category\": \"billing | refund | technical_issue | shipping | sales | complaint | account | follow_up | other\",\n  \"priority\": \"low | medium | high | urgent\",\n  \"sentiment\": \"positive | neutral | negative | angry\",\n  \"summary\": \"One sentence summary of the current message\",\n  \"customer_intent\": \"What the customer wants now\",\n  \"needs_human\": true,\n  \"confidence\": 0.0,\n  \"suggested_reply\": \"Complete formatted customer support email draft. Use escaped newline characters like \\\\n between salutation, body, closing, and sender name.\"\n}\nImportant JSON formatting rule:\n- The JSON must be strictly valid.\n- Escape all line breaks inside suggested_reply as \\n.\n- Do not put raw multiline text inside JSON string values.\n\nField rules:\n- category must be one of: billing, refund, technical_issue, shipping, sales, complaint, account, follow_up, other.\n- priority must be one of: low, medium, high, urgent.\n- sentiment must be one of: positive, neutral, negative, angry.\n- needs_human must be a boolean, not a string.\n- confidence must be a number between 0 and 1.\n- suggested_reply must not say the issue has been resolved unless the context proves it.\n- suggested_reply must not include markdown formatting.\n- suggested_reply should be ready for a human reviewer to approve, edit, or reject."
+            }
+          ]
+        },
+        "simplify": false,
+        "builtInTools": {},
+        "options": {
+          "store": false,
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        -848
+      ],
+      "id": "936f76a6-7b3b-4874-856c-0c61675fb89e",
+      "name": "AI Classify and Draft Reply",
+      "alwaysOutputData": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_API_CREDENTIAL_ID_PLACEHOLDER",
+          "name": "OPENAI_API_CREDENTIAL_NAME_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction extractRawText(item) {\n  let raw;\n\n  if (Array.isArray(item.json.output)) {\n    for (const outputItem of item.json.output) {\n      if (outputItem.type === 'message' && Array.isArray(outputItem.content)) {\n        for (const contentItem of outputItem.content) {\n          if (contentItem.type === 'output_text' && typeof contentItem.text === 'string') {\n            raw = contentItem.text;\n            break;\n          }\n        }\n      }\n      if (raw) break;\n    }\n  }\n\n  if (!raw) {\n    const possibleOutputs = [\n      item.json.text,\n      item.json.output_text,\n      item.json.response,\n      item.json.message,\n      item.json.content,\n      item.json.data,\n      item.json.result,\n    ];\n\n    raw = possibleOutputs.find(value => typeof value === 'string' && value.trim().length > 0);\n  }\n\n  return raw || '';\n}\n\nfunction cleanJsonText(raw) {\n  return String(raw || '')\n    .trim()\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n}\n\nfunction extractJsonObject(text) {\n  const cleaned = cleanJsonText(text);\n  const start = cleaned.indexOf('{');\n  const end = cleaned.lastIndexOf('}');\n\n  if (start === -1 || end === -1 || end <= start) {\n    return cleaned;\n  }\n\n  return cleaned.slice(start, end + 1);\n}\n\nfunction escapeNewlinesInsideStrings(jsonText) {\n  let result = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < jsonText.length; i++) {\n    const char = jsonText[i];\n\n    if (escaped) {\n      result += char;\n      escaped = false;\n      continue;\n    }\n\n    if (char === '\\\\') {\n      result += char;\n      escaped = true;\n      continue;\n    }\n\n    if (char === '\"') {\n      inString = !inString;\n      result += char;\n      continue;\n    }\n\n    if (inString && char === '\\n') {\n      result += '\\\\n';\n      continue;\n    }\n\n    if (inString && char === '\\r') {\n      continue;\n    }\n\n    if (inString && char === '\\t') {\n      result += '\\\\t';\n      continue;\n    }\n\n    result += char;\n  }\n\n  return result;\n}\n\nfunction parseAiJson(raw) {\n  const jsonCandidate = extractJsonObject(raw);\n\n  try {\n    return {\n      parsed: JSON.parse(jsonCandidate),\n      raw_output: cleanJsonText(raw),\n      parse_error: '',\n    };\n  } catch (error) {\n    const repaired = escapeNewlinesInsideStrings(jsonCandidate);\n\n    try {\n      return {\n        parsed: JSON.parse(repaired),\n        raw_output: cleanJsonText(raw),\n        parse_error: '',\n      };\n    } catch (repairError) {\n      return {\n        parsed: null,\n        raw_output: cleanJsonText(raw),\n        parse_error: repairError.message,\n      };\n    }\n  }\n}\n\nfunction normalizeBoolean(value) {\n  if (value === true || value === 'true' || value === 'TRUE') return true;\n  if (value === false || value === 'false' || value === 'FALSE') return false;\n  return Boolean(value);\n}\n\nfunction normalizeConfidence(value) {\n  const number = Number(value);\n\n  if (Number.isNaN(number)) return 0;\n  if (number < 0) return 0;\n  if (number > 1) return 1;\n\n  return number;\n}\n\nfunction allowedValue(value, allowed, fallback) {\n  return allowed.includes(value) ? value : fallback;\n}\n\nfunction ensureFormattedReply(reply) {\n  let text = String(reply || '').trim();\n\n  if (!text) {\n    return 'Hello,\\n\\nThis message needs manual review before replying.\\n\\nRegards,\\nSupport Team';\n  }\n\n  // Convert escaped newline text into real line breaks.\n  text = text\n    .replace(/\\\\\\\\n/g, '\\n')\n    .replace(/\\\\n/g, '\\n')\n    .replace(/\\r/g, '')\n    .trim();\n\n  // Clean spacing around lines.\n  text = text\n    .split('\\n')\n    .map(line => line.trim())\n    .join('\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  // Preserve whatever sender name the AI generated if it already has a closing.\n  const hasClosing = /(Regards|Best regards|Sincerely|Thank you),?\\s*\\n\\s*.+/i.test(text);\n\n  if (hasClosing) {\n    return text;\n  }\n\n  // Only add a generic closing if the AI forgot one.\n  return `${text}\\n\\nRegards,\\nSupport Team`;\n}\n\nreturn items.map((item) => {\n  const raw = extractRawText(item);\n  const { parsed, raw_output, parse_error } = parseAiJson(raw);\n\n  const fallback = {\n    category: 'other',\n    priority: 'high',\n    sentiment: 'negative',\n    summary: 'AI output could not be parsed and needs manual review.',\n    customer_intent: 'Unknown',\n    needs_human: true,\n    confidence: 0,\n    suggested_reply: 'Hello,\\n\\nThis message needs manual review before replying.\\n\\nRegards,\\nSupport Team',\n  };\n\n  const ai = parsed || fallback;\n\n  const category = allowedValue(\n    ai.category,\n    [\n      'billing',\n      'refund',\n      'technical_issue',\n      'shipping',\n      'sales',\n      'complaint',\n      'account',\n      'follow_up',\n      'other',\n    ],\n    'other'\n  );\n\n  const priority = allowedValue(\n    ai.priority,\n    ['low', 'medium', 'high', 'urgent'],\n    'high'\n  );\n\n  const sentiment = allowedValue(\n    ai.sentiment,\n    ['positive', 'neutral', 'negative', 'angry'],\n    'negative'\n  );\n\n  const confidence = normalizeConfidence(ai.confidence);\n  let needsHuman = normalizeBoolean(ai.needs_human);\n\n  if (\n    confidence < 0.8 ||\n    priority === 'urgent' ||\n    sentiment === 'angry' ||\n    category === 'refund' ||\n    category === 'billing' ||\n    parse_error\n  ) {\n    needsHuman = true;\n  }\n\n  return {\n    json: {\n      ...item.json,\n\n      ticket_id:\n        item.json.ticket_id ||\n        `TICKET-${Date.now()}-${Math.floor(Math.random() * 10000)}`,\n\n      ai_raw_output: raw_output,\n      ai_parse_error: parse_error,\n\n      ai_category: category,\n      ai_priority: priority,\n      ai_sentiment: sentiment,\n      ai_summary: ai.summary || fallback.summary,\n      ai_customer_intent: ai.customer_intent || fallback.customer_intent,\n      ai_needs_human: needsHuman,\n      ai_confidence: confidence,\n      ai_suggested_reply: ensureFormattedReply(ai.suggested_reply || fallback.suggested_reply),\n\n      conversation_type: item.json.conversation_type || 'New',\n      parent_ticket_id: item.json.parent_ticket_id || '',\n      previous_status: item.json.previous_status || '',\n      previous_summary: item.json.previous_summary || '',\n      previous_final_reply: item.json.previous_final_reply || '',\n      previous_ticket_timestamp: item.json.previous_ticket_timestamp || '',\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        -848
+      ],
+      "id": "beb10495-b05c-49e8-8be6-463c5c798968",
+      "name": "Parse AI Classification"
+    },
+    {
+      "parameters": {
+        "content": "## AI Customer Support Triage Agent\n\n### This workflow monitors a Gmail support inbox, classifies incoming customer emails with AI, drafts a suggested reply, posts the ticket to Slack with approval buttons, and logs the ticket in Google Sheets.\n\n### It is designed as a human-in-the-loop support workflow. The AI drafts and classifies, but a human reviewer decides whether the response should be approved, edited, or rejected.",
+        "height": 208,
+        "width": 624,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1360,
+        -2528
+      ],
+      "typeVersion": 1,
+      "id": "a4743d39-8b62-424b-9eed-9574df9dfcc9",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Workflow Steps\n\n1. Gmail Trigger watches for new emails with the Support label.\n2. Extract Email Data normalizes the sender, subject, body, Gmail message ID, thread ID, and received timestamp.\n3. Existing ticket rows are checked using gmail_thread_id to detect follow-up conversations.\n4. The AI node classifies the email, detects priority and sentiment, and drafts a formatted reply.\n5. Parse AI Classification converts the AI JSON response into clean workflow fields.\n6. IF routing separates higher-risk tickets from quick-review tickets.\n7. Slack message with approval buttons is posted.\n8. Slack channel and message timestamp are saved.\n9. The ticket is logged in Google Sheets.",
+        "height": 304,
+        "width": 624,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1360,
+        -2032
+      ],
+      "typeVersion": 1,
+      "id": "6d7dc176-ca0b-4b1d-aed9-447e78fd631a",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_GOOGLE_SHEET_NAME",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_TAB_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_SHEET_TAB_NAME",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_TAB_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_email": "={{ $('Extract Email Data').item.json.customer_email }}",
+            "subject": "={{ $('Extract Email Data').item.json.subject }}",
+            "timestamp": "={{ $('Extract Email Data').item.json.received_at }}",
+            "category": "={{ $json.ai_category }}",
+            "priority": "={{ $json.ai_priority }}",
+            "sentiment": "={{ $json.ai_sentiment }}",
+            "confidence": "={{ $json.ai_confidence }}",
+            "customer_intent": "={{ $json.ai_customer_intent }}",
+            "needs_human": "={{ $json.ai_needs_human }}",
+            "suggested_reply": "={{ $json.ai_suggested_reply }}",
+            "gmail_message_id": "={{ $('Extract Email Data').item.json.gmail_message_id }}",
+            "gmail_thread_id": "={{ $('Extract Email Data').item.json.gmail_thread_id }}",
+            "summary": "={{ $json.ai_summary }}",
+            "ticket_id": "={{ $json.ticket_id }}",
+            "status": "={{ $json.status }}",
+            "final_reply": "={{ $json.ai_suggested_reply }}",
+            "slack_channel": "={{ $json.ai_suggested_reply }}",
+            "slack_message_ts": "={{ $json.slack_message_ts }}",
+            "conversation_type": "={{ $json.conversation_type || 'New' }}",
+            "parent_ticket_id": "={{ $json.parent_ticket_id || '' }}",
+            "previous_status": "={{ $json.previous_status || '' }}",
+            "previous_summary": "={{ $json.previous_summary || '' }}",
+            "previous_final_reply": "={{ $json.previous_final_reply }}",
+            "previous_ticket_timestamp": "={{ $json.previous_ticket_timestamp || '' }}",
+            "reviewer_notes": "={{ $json.reviewer_notes || '' }}",
+            "reviewed_by": "={{ $json.approved_by || '' }}",
+            "reviewed_at": "={{ $json.approved_at || '' }}",
+            "sent_at": "={{ $json.sent_at || '' }}"
+          },
+          "matchingColumns": [
+            "ticket_id"
+          ],
+          "schema": [
+            {
+              "id": "ticket_id",
+              "displayName": "ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_email",
+              "displayName": "customer_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_intent",
+              "displayName": "customer_intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "needs_human",
+              "displayName": "needs_human",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "suggested_reply",
+              "displayName": "suggested_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_reply",
+              "displayName": "final_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_message_id",
+              "displayName": "gmail_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gmail_thread_id",
+              "displayName": "gmail_thread_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "conversation_type",
+              "displayName": "conversation_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "parent_ticket_id",
+              "displayName": "parent_ticket_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "previous_status",
+              "displayName": "previous_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "previous_summary",
+              "displayName": "previous_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "previous_final_reply",
+              "displayName": "previous_final_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "previous_ticket_timestamp",
+              "displayName": "previous_ticket_timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "slack_channel",
+              "displayName": "slack_channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "slack_message_ts",
+              "displayName": "slack_message_ts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reviewer_notes",
+              "displayName": "reviewer_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reviewed_by",
+              "displayName": "reviewed_by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3280,
+        -816
+      ],
+      "id": "7f823f95-4901-4ac7-8512-5806d0253cdf",
+      "name": "Log Ticket in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_OAUTH2_CREDENTIAL_ID_PLACEHOLDER",
+          "name": "GOOGLE_SHEETS_OAUTH2_CREDENTIAL_NAME_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SLACK_WEBHOOK_OR_API_ENDPOINT",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    channel: $json.slack_payload?.channel || $json.slack_payload.channel,\n    text: 'New support email triaged by AI',\n    blocks: [\n      {\n        type: 'header',\n        text: {\n          type: 'plain_text',\n          text: '📩 New support email triaged by AI',\n          emoji: true\n        }\n      },\n      {\n        type: 'section',\n        fields: [\n          {\n            type: 'mrkdwn',\n            text: '*From:*\\n' + ($json.customer_email || 'Unknown')\n          },\n          {\n            type: 'mrkdwn',\n            text: '*Subject:*\\n' + ($json.subject || 'No subject')\n          },\n          {\n            type: 'mrkdwn',\n            text: '*Category:*\\n`' + ($json.ai_category || 'other') + '`'\n          },\n          {\n            type: 'mrkdwn',\n            text: '*Priority:*\\n`' + ($json.ai_priority || 'unknown') + '`'\n          },\n          {\n            type: 'mrkdwn',\n            text: '*Sentiment:*\\n`' + ($json.ai_sentiment || 'unknown') + '`'\n          },\n          {\n            type: 'mrkdwn',\n            text: '*Confidence:*\\n`' + ($json.ai_confidence ?? 0) + '`'\n          }\n        ]\n      },\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: '*Summary*\\n' + ($json.ai_summary || 'No summary available')\n        }\n      },\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: '*Customer intent*\\n' + ($json.ai_customer_intent || 'Unknown')\n        }\n      },\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: '*Suggested reply draft*\\n>' + ($json.ai_suggested_reply || 'No suggested reply available')\n        }\n      },\n      {\n        type: 'context',\n        elements: [\n          {\n            type: 'mrkdwn',\n            text:\n              '*Ticket ID:* `' + ($json.ticket_id || 'missing-ticket-id') + '` • ' +\n              '*Status:* `' + ($json.status || 'Pending Review') + '`'\n          }\n        ]\n      },\n      {\n        type: 'actions',\n        block_id: 'support_approval_actions',\n        elements: [\n          {\n            type: 'button',\n            action_id: 'approve_ai_reply',\n            text: {\n              type: 'plain_text',\n              text: 'Approve AI Reply',\n              emoji: true\n            },\n            style: 'primary',\n            value: ($json.ticket_id || 'missing-ticket-id') + '|approve'\n          },\n          {\n            type: 'button',\n            action_id: 'needs_edit',\n            text: {\n              type: 'plain_text',\n              text: 'Needs Edit',\n              emoji: true\n            },\n            value: ($json.ticket_id || 'missing-ticket-id') + '|needs_edit'\n          },\n          {\n            type: 'button',\n            action_id: 'reject_reply',\n            text: {\n              type: 'plain_text',\n              text: 'Reject',\n              emoji: true\n            },\n            style: 'danger',\n            value: ($json.ticket_id || 'missing-ticket-id') + '|reject'\n          }\n        ]\n      }\n    ]\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2560,
+        -816
+      ],
+      "id": "4f04c3c5-318c-4a01-90c8-a80e950c54aa",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HTTP_HEADER_AUTH_CREDENTIAL_ID_PLACEHOLDER",
+          "name": "HTTP_HEADER_AUTH_CREDENTIAL_NAME_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction truncate(text, max = 2500) {\n  if (!text) return '';\n  const stringText = String(text);\n  return stringText.length > max\n    ? stringText.slice(0, max - 20) + '... [truncated]'\n    : stringText;\n}\n\nreturn items.map((item) => {\n  const data = item.json;\n\n  const status = data.ai_needs_human\n    ? 'Pending Human Review'\n    : 'Ready for Quick Review';\n\n  const title = data.ai_needs_human\n    ? '🚨 Support ticket needs review'\n    : '✅ Support ticket ready for quick review';\n\n  const payload = {\n    channel: 'YOUR_SLACK_CHANNEL_ID',\n    text: title,\n    blocks: [\n      {\n        type: 'header',\n        text: {\n          type: 'plain_text',\n          text: title,\n          emoji: true,\n        },\n      },\n      {\n        type: 'section',\n        fields: [\n          {\n            type: 'mrkdwn',\n            text: `*From:*\\n${data.customer_email || 'Unknown'}`,\n          },\n          {\n            type: 'mrkdwn',\n            text: `*Subject:*\\n${data.subject || 'No subject'}`,\n          },\n          {\n            type: 'mrkdwn',\n            text: `*Category:*\\n\\`${data.ai_category || 'other'}\\``,\n          },\n          {\n            type: 'mrkdwn',\n            text: `*Priority:*\\n\\`${data.ai_priority || 'unknown'}\\``,\n          },\n          {\n            type: 'mrkdwn',\n            text: `*Sentiment:*\\n\\`${data.ai_sentiment || 'unknown'}\\``,\n          },\n          {\n            type: 'mrkdwn',\n            text: `*Confidence:*\\n\\`${data.ai_confidence ?? 0}\\``,\n          },\n        ],\n      },\n      {\n  type: 'section',\n  text: {\n    type: 'mrkdwn',\n    text: `*Conversation type*\\n${data.conversation_type || 'New'}`\n  }\n},\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: `*Summary*\\n${truncate(data.ai_summary, 1000) || 'No summary available'}`,\n        },\n      },\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: `*Customer intent*\\n${truncate(data.ai_customer_intent, 1000) || 'No customer intent available'}`,\n        },\n      },\n      {\n        type: 'section',\n        text: {\n          type: 'mrkdwn',\n          text: `*Suggested reply draft*\\n>${truncate(data.ai_suggested_reply, 2500) || 'No suggested reply available'}`,\n        },\n      },\n      {\n        type: 'context',\n        elements: [\n          {\n            type: 'mrkdwn',\n            text: `Click *Approve AI Reply* to send as-is, or *Needs Edit* to update \\`final_reply\\` in Google Sheets before sending.`,\n          },\n        ],\n      },\n      {\n        type: 'context',\n        elements: [\n          {\n            type: 'mrkdwn',\n            text: `*Ticket ID:* \\`${data.ticket_id}\\` • *Status:* \\`${status}\\``,\n          },\n        ],\n      },\n      {\n        type: 'actions',\n        block_id: 'support_approval_actions',\n        elements: [\n          {\n            type: 'button',\n            action_id: 'approve_ai_reply',\n            text: {\n              type: 'plain_text',\n              text: 'Approve AI Reply',\n              emoji: true,\n            },\n            style: 'primary',\n            value: `${data.ticket_id}|approve`,\n          },\n          {\n            type: 'button',\n            action_id: 'needs_edit',\n            text: {\n              type: 'plain_text',\n              text: 'Needs Edit',\n              emoji: true,\n            },\n            value: `${data.ticket_id}|needs_edit`,\n          },\n          {\n            type: 'button',\n            action_id: 'reject_reply',\n            text: {\n              type: 'plain_text',\n              text: 'Reject',\n              emoji: true,\n            },\n            style: 'danger',\n            value: `${data.ticket_id}|reject`,\n          },\n        ],\n      },\n    ],\n  };\n\n  return {\n    json: {\n      ...data,\n      status,\n      slack_payload: payload\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        -864
+      ],
+      "id": "3f820681-cd8c-459f-aeaf-2537087db48a",
+      "name": "Build Slack Button Payload"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3f77d293-072a-4157-93ee-39911ee20f31",
+              "name": "status",
+              "value": "Pending Human Review",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        -1024
+      ],
+      "id": "f04545e7-47d4-48ed-a036-73f904aec500",
+      "name": "Pending Human Review"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3f77d293-072a-4157-93ee-39911ee20f31",
+              "name": "status",
+              "value": "Ready for Quick Review",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        -656
+      ],
+      "id": "ed10164c-aeb6-4b72-b669-1dcb5883dc60",
+      "name": "Ready for Quick Review"
+    },
+    {
+      "parameters": {
+        "jsCode": "const slackResponse = $input.first().json;\nconst ticketData = $('Build Slack Button Payload').first().json;\n\nreturn [\n  {\n    json: {\n      ...ticketData,\n\n      slack_ok: slackResponse.ok,\n      slack_channel: slackResponse.channel,\n      slack_message_ts: slackResponse.ts,\n      slack_response_text: slackResponse.message?.text || '',\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2928,
+        -816
+      ],
+      "id": "7167ceea-0d37-46e3-9cf9-a53e1d3707ce",
+      "name": "Merge Slack Response with Ticket Data"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_GOOGLE_SHEET_NAME",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_TAB_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_SHEET_TAB_NAME",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=YOUR_SHEET_TAB_ID"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "gmail_thread_id",
+              "lookupValue": "={{ $json.gmail_thread_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -400,
+        -848
+      ],
+      "id": "d070d17e-888d-422e-a4fe-29db0c85d21f",
+      "name": "Get Existing Ticket Rows",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_OAUTH2_CREDENTIAL_ID_PLACEHOLDER",
+          "name": "GOOGLE_SHEETS_OAUTH2_CREDENTIAL_NAME_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentEmail = $('Extract Email Data').first().json;\nconst rows = $input.all();\n\nconst sameThreadRows = rows\n  .filter(item => String(item.json.gmail_thread_id || '').trim() === String(currentEmail.gmail_thread_id || '').trim())\n  .filter(item => String(item.json.gmail_message_id || '').trim() !== String(currentEmail.gmail_message_id || '').trim());\n\n// Prefer a row that was already sent, otherwise use the latest row in the thread.\nconst sentRows = sameThreadRows.filter(item => String(item.json.status || '').toLowerCase() === 'sent');\n\nconst candidates = sentRows.length > 0 ? sentRows : sameThreadRows;\n\nlet previousTicket = null;\n\nif (candidates.length > 0) {\n  previousTicket = candidates[candidates.length - 1].json;\n}\n\nconst conversationType = previousTicket ? 'Follow-up' : 'New';\n\nreturn [\n  {\n    json: {\n      ...currentEmail,\n\n      conversation_type: conversationType,\n\n      parent_ticket_id: previousTicket?.ticket_id || '',\n      previous_status: previousTicket?.status || '',\n      previous_summary: previousTicket?.summary || previousTicket?.ai_summary || '',\n      previous_final_reply: previousTicket?.final_reply || previousTicket?.suggested_reply || previousTicket?.ai_suggested_reply || '',\n      previous_ticket_timestamp: previousTicket?.timestamp || previousTicket?.received_at || ''\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -848
+      ],
+      "id": "58714254-70e4-43b3-9e04-034e3f415958",
+      "name": "Find Previous Thread Ticket"
+    },
+    {
+      "parameters": {
+        "content": "## Setup Required Before Running\n\n1. Create a Gmail label named `Support`.\n2. Apply the `Support` label to incoming support emails.\n3. Create a Google Sheet with the required ticket log columns.\n4. Connect Gmail, Google Sheets, Slack, and AI model credentials.\n5. Configure the Slack channel ID in the Slack HTTP Request node.\n6. Make sure the Support Approval Button Handler workflow is active.\n7. Configure the Slack app’s Interactivity Request URL to point to the button handler webhook.\n",
+        "height": 224,
+        "width": 624,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1360,
+        -2288
+      ],
+      "typeVersion": 1,
+      "id": "564c6948-3d81-46bc-9f03-514299028ef2",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "content": "## Extract Email Data\n\nThis node normalizes Gmail output into clean fields used by the rest of the workflow.\nUse Gmail internalDate for the real email timestamp when available.\n",
+        "height": 368,
+        "width": 320,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -880,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "0dfeb5a4-f2f9-4c03-a394-ef4dd4d4e7f7",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "content": "## AI Classification\n\nThe AI returns JSON with:\ncategory, priority, sentiment, summary, customer_intent, needs_human, confidence, suggested_reply.\n\nThe reply is only a draft. It must not promise refunds, replacements, discounts, delivery guarantees, or account changes.",
+        "height": 368,
+        "width": 384,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        304,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "5d05fce3-fe99-427c-b86e-9c1ce902c0d0",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "content": "## Send Slack Approval Message\n\nPosts the ticket to Slack using chat.postMessage.\n\nSlack returns:\n- channel\n- message timestamp\n\nThese are needed later so the approval handler can update the original Slack message.",
+        "height": 464,
+        "width": 320,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2464,
+        -1072
+      ],
+      "typeVersion": 1,
+      "id": "b3f035bb-e177-4f9e-bb7f-47ab116275c1",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Google Sheets Log\n\nStores the ticket, AI draft, Gmail IDs, thread context, Slack message ID, and approval status.\n\nBoth workflows use this same sheet.",
+        "height": 464,
+        "width": 304,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3200,
+        -1072
+      ],
+      "typeVersion": 1,
+      "id": "48dd576d-de76-49ab-a204-1ae6fe6dd73b",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Safety\n\nThis workflow never sends customer replies automatically.\nThe AI only drafts and classifies.\nA human must approve, edit, or reject from Slack.",
+        "width": 624,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1360,
+        -1696
+      ],
+      "typeVersion": 1,
+      "id": "691fbf06-e6f8-4d13-a2ab-16e23926f8ee",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Get Existing Ticket Rows\n\nSearches the Google Sheets ticket log for previous tickets with the same Gmail thread.\n\nUsed for thread-aware replies.\n\nImportant:\nEnable Always Output Data so new tickets continue even when no previous row exists.",
+        "height": 368,
+        "width": 368,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -528,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "ca3aeaee-562e-45d0-951c-d0b9b663a9d2",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## Find Previous Thread Ticket\n\nChecks whether this email belongs to an existing Gmail thread.\n\nOutputs:\n- conversation_type = New or Follow-up\n- parent_ticket_id\n- previous_status\n- previous_summary\n- previous_final_reply\n- previous_ticket_timestamp",
+        "height": 368,
+        "width": 400,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "56fb0467-7408-4a0a-b0e8-6dae35f76c34",
+      "name": "Sticky Note11"
+    },
+    {
+      "parameters": {
+        "content": "## Needs Human Review?\n\nRoutes tickets based on risk.\n\nTrue path:\nPending Human Review: Risky, urgent, angry, billing, refund, legal, payment, or low-confidence tickets.\n\nFalse path:\nReady for Quick Review: Low-risk, clear, high-confidence tickets.\n\n\nBoth still require human approval.",
+        "height": 416,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1216,
+        -1056
+      ],
+      "typeVersion": 1,
+      "id": "b05a6ced-38c7-410d-9373-88409f292fe5",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "content": "## Parse AI Classification\n\nParses the AI JSON response into clean workflow fields. It also:\n- generates ticket_id\n- cleans escaped newlines\n- applies safety overrides\n- preserves thread context\n\nIf parsing fails, the ticket is forced to human review.",
+        "height": 368,
+        "width": 464,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        720,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "c485ec3e-c50e-47b3-b8f1-a1db6ad3f46b",
+      "name": "Sticky Note13"
+    },
+    {
+      "parameters": {
+        "content": "## Set Status: Pending Human Review\n\nAdds status for risky tickets.\n\nUsed when the issue needs careful human review before any reply is sent.\n\nStatus:\nPending Human Review",
+        "height": 320,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1616,
+        -1168
+      ],
+      "typeVersion": 1,
+      "id": "81322411-68ce-439a-b695-d56a9d5d969a",
+      "name": "Sticky Note14"
+    },
+    {
+      "parameters": {
+        "content": "## Set Status: Ready for Quick Review\n\nAdds status for low-risk tickets.\n\nThe AI draft looks safe, but a human still needs to approve it.\n\nStatus:\nReady for Quick Review",
+        "height": 320,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1616,
+        -816
+      ],
+      "typeVersion": 1,
+      "id": "56e4ca97-f205-452d-a35a-e704db3fc40c",
+      "name": "Sticky Note15"
+    },
+    {
+      "parameters": {
+        "content": "## Prepare Slack Approval Message\n\nBuilds the Slack message payload with ticket details and approval buttons.\n\nButtons:\n- Approve AI Reply\n- Needs Edit\n- Reject\n\nButton value:\nticket_id|decision",
+        "height": 464,
+        "width": 384,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2048,
+        -1072
+      ],
+      "typeVersion": 1,
+      "id": "ba27b302-bde4-409c-b11e-b58c0270c52e",
+      "name": "Sticky Note16"
+    },
+    {
+      "parameters": {
+        "content": "## Merge Slack Response\n\nCombines the original ticket data with Slack response data.\n\nAdds:\n- slack_channel\n- slack_message_ts\n\nThese fields are required by the Support Approval Button Handler workflow.",
+        "height": 464,
+        "width": 352,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2816,
+        -1072
+      ],
+      "typeVersion": 1,
+      "id": "66e96714-2d89-44b8-b10c-210fad6f727d",
+      "name": "Sticky Note17"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract Email Data": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Ticket Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classify and Draft Reply": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Classification": {
+      "main": [
+        [
+          {
+            "node": "Needs Human Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human Review?": {
+      "main": [
+        [
+          {
+            "node": "Pending Human Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ready for Quick Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Ticket in Google Sheets": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge Slack Response with Ticket Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack Button Payload": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending Human Review": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Button Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready for Quick Review": {
+      "main": [
+        [
+          {
+            "node": "Build Slack Button Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Slack Response with Ticket Data": {
+      "main": [
+        [
+          {
+            "node": "Log Ticket in Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Ticket Rows": {
+      "main": [
+        [
+          {
+            "node": "Find Previous Thread Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Previous Thread Ticket": {
+      "main": [
+        [
+          {
+            "node": "AI Classify and Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "WORKFLOW_VERSION_ID_PLACEHOLDER",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "N8N_INSTANCE_ID_PLACEHOLDER"
+  },
+  "id": "WORKFLOW_ID_PLACEHOLDER",
+  "tags": []
+}
