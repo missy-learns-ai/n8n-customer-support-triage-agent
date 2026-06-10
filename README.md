@@ -11,6 +11,13 @@ The template watches incoming support emails, classifies and drafts replies with
 | `workflows/Customer Support Triage Agent.json` | Main triage workflow. It reads support emails from Gmail, extracts ticket fields, classifies the request with OpenAI, writes the ticket to Google Sheets, and posts a Slack review message. |
 | `workflows/Support Approval Button Handler.json` | Slack approval handler. It receives Slack button actions, looks up the related ticket, updates Google Sheets, updates the Slack message, and sends the approved reply through Gmail. |
 
+Customer Support Triage Agent Workflow Design
+<img width="1389" height="590" alt="image" src="https://github.com/user-attachments/assets/a40d4da3-936b-4d48-ae76-fd421d19057b" />
+
+Support Approval Button Handler Workflow Design
+<img width="848" height="634" alt="image" src="https://github.com/user-attachments/assets/9b5e9594-04a3-4a3e-b16c-887af7915950" />
+
+
 ## What It Does
 
 1. Watches Gmail for messages with a support label.
